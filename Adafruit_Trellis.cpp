@@ -24,9 +24,21 @@
 
 #include "Adafruit_Trellis.h"
 
-#define HT16K33_BLINK_CMD       0x80
-#define HT16K33_BLINK_DISPLAYON 0x01
-#define HT16K33_CMD_BRIGHTNESS  0xE0
+#define HT16K33_CMD_DISPLAY_ADDR 0x00
+#define HT16K33_CMD_SETUP        0x20
+#define HT16K33_CMD_KEY_ADDR     0x40
+#define HT16K33_CMD_INT_ADDR     0x60
+#define HT16K33_CMD_DISPLAY      0x80
+#define HT16K33_CMD_INT_ROW      0xA0
+#define HT16K33_CMD_BRIGHTNESS   0xE0
+#define HT16K33_CMD_TEST         0xD9
+
+#define OSCILLATOR_OFF  0x00
+#define OSCILLATOR_ON   0x01
+#define DISPLAY_OFF     0x00
+#define DISPLAY_ON      0x01
+#define INTERRUPT_LOW   0x01
+#define INTERRUPT_HIGH  0x03
 
 /*
 These are the lookup tables that convert the LED/button #
@@ -54,14 +66,14 @@ void Adafruit_Trellis::begin(uint8_t _addr = 0x70) {
   Wire.begin();
 
   Wire.beginTransmission(i2c_addr);
-  Wire.write(0x21);  // turn on oscillator
+  Wire.write(HT16K33_CMD_SETUP | OSCILLATOR_ON);  // turn on oscillator
   Wire.endTransmission();
   blinkRate(HT16K33_BLINK_OFF);
   
   setBrightness(15); // max brightness
 
   Wire.beginTransmission(i2c_addr);
-  Wire.write(0xA1);  // turn on interrupt, active low
+  Wire.write(HT16K33_CMD_INT_ROW | INTERRUPT_LOW);  // turn on interrupt, active low
   Wire.endTransmission();
 
 }
@@ -118,7 +130,7 @@ boolean Adafruit_Trellis::readSwitches(void) {
   memcpy(lastkeys, keys, sizeof(keys));
 
   Wire.beginTransmission((byte)i2c_addr);
-  Wire.write(0x40);
+  Wire.write(HT16K33_CMD_KEY_ADDR);
   Wire.endTransmission();
   Wire.requestFrom((byte)i2c_addr, (byte)6);
   for (uint8_t i=0; i<6; i++) 
@@ -127,7 +139,7 @@ boolean Adafruit_Trellis::readSwitches(void) {
   for (uint8_t i=0; i<6; i++) {
     if (lastkeys[i] != keys[i]) {
        for (uint8_t j=0; j<6; j++) {
-	 //Serial.print(keys[j], HEX); Serial.print(" ");
+         //Serial.print(keys[j], HEX); Serial.print(" ");
        }
        //Serial.println();
       return true;
@@ -147,14 +159,14 @@ void Adafruit_Trellis::blinkRate(uint8_t b) {
   Wire.beginTransmission(i2c_addr);
   if (b > 3) b = 0; // turn off if not sure
   
-  Wire.write(HT16K33_BLINK_CMD | HT16K33_BLINK_DISPLAYON | (b << 1)); 
+  Wire.write(HT16K33_CMD_DISPLAY | DISPLAY_ON | (b << 1)); 
   Wire.endTransmission();
 }
 
 
 void Adafruit_Trellis::writeDisplay(void) {
   Wire.beginTransmission(i2c_addr);
-  Wire.write((uint8_t)0x00); // start at address $00
+  Wire.write((uint8_t)HT16K33_CMD_DISPLAY_ADDR); // start at address $00
 
   for (uint8_t i=0; i<8; i++) {
     Wire.write(displaybuffer[i] & 0xFF);    
@@ -169,13 +181,13 @@ void Adafruit_Trellis::clear(void) {
 
 void Adafruit_Trellis::sleep(void) {
   Wire.beginTransmission(i2c_addr);
-  Wire.write(0x20);  // turn off oscillator (standby mode)
+  Wire.write(HT16K33_CMD_SETUP | OSCILLATOR_OFF);  // standby mode
   Wire.endTransmission();
 }
 
 void Adafruit_Trellis::wakeup(void) {
   Wire.beginTransmission(i2c_addr);
-  Wire.write(0x21);  // turn on oscillator
+  Wire.write(HT16K33_CMD_SETUP | OSCILLATOR_ON);  // normal operation
   Wire.endTransmission();
 }
 
